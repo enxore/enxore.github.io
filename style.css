@@ -1,0 +1,12 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+input {
+  font-size: 60px;
+}
+
+canvas {
+  display: block;
+}
