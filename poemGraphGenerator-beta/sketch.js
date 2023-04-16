@@ -106,7 +106,7 @@ let backgroundElementsModifier = new class {
     this.undoList = new Array(this.modifyList.length);
     for (let i = 0; i != this.modifyList.length; ++i) {
       let timg = createImage(this.modifyList[i].width, this.modifyList[i].height);
-      
+
       timg.copy(this.modifyList[i],
         0, 0, this.modifyList[i].width, this.modifyList[i].height,
         0, 0, timg.width, timg.height);
@@ -145,6 +145,7 @@ let backgroundElementsModifier = new class {
   }
 }();
 
+
 let poemInput;
 let saveButton;
 
@@ -156,10 +157,44 @@ let operatingArea;
 let operatingAreaWidth = 841;
 let operatingAreaHeight = 1189;
 
-let displayArea;
-let displayAreaWidth = operatingAreaWidth;
-let displayAreaHeight = operatingAreaHeight;
-let displayAreaDefined = false;
+let addArea;
+let addAreaWidth = operatingAreaWidth;
+let addAreaHeight = operatingAreaHeight;
+let addAreaDefined = false;
+
+let codeDisplayer = new class {
+  constructor() {
+    this.graphics = undefined;
+    this.position = undefined;
+    this.texts = [];
+    this.lineNum = 6;
+  }
+
+  initialize() {
+    this.graphics = createGraphics(800, 400);
+    this.position = createVector(operatingAreaWidth * 2.1, operatingAreaHeight - this.graphics.height);
+    this.graphics.textSize(30);
+    this.graphics.fill(0);
+  }
+
+  add(str) {
+    if (this.texts.length >= this.lineNum) { this.texts.shift(); }
+    this.texts.push(str);
+    this.graphics.background(255);
+    this.randomShuffle();
+    for (let i = this.texts.length - 1; i >= 0; --i) {
+      this.graphics.text(this.texts[i], 0, this.graphics.height / this.lineNum * i + this.graphics.textSize() / 2 + 10);
+    }
+  }
+
+  randomShuffle() {
+    for (let i = this.texts.length - 1; i > 0; i--) {
+      let j = Math.floor(Math.random() * (i + 1));
+      [this.texts[i], this.texts[j]] = [this.texts[j], this.texts[i]];
+    }
+  }
+
+}();
 
 
 /**
@@ -185,7 +220,7 @@ class MyRect {
     this.size = createVector(abs(twidth), abs(theight));
   }
 
-  display() {
+  add() {
     operatingArea.rect(this.vp0.x, this.vp0.y, this.size.x, this.size.y);
   }
 }
@@ -205,28 +240,35 @@ let vp1Defined = false;
 
 function setProbRects() {
   push();
+  codeDisplayer.add('operatingArea.background(220);');
   operatingArea.background(220);
   for (let i = 0; i != probRects.length; ++i) {
-    // rect(probRects[i].vp1.x, probRects[i].vp1.y, probRects[i].width, probRects[i].height);
-    probRects[i].display();
+    codeDisplayer.add('probRects[i].add();');
+    probRects[i].add();
   }
   if (!mouseIsPressed) {
     if (vp1Defined) {
       vp1Defined = false;
-      if (vp1.x != mouseX && vp1.y != mouseY) probRects.push(new MyRect(vp1, createVector(mouseX, mouseY)));
-      // console.log(probRects[probRects.length - 1]);
+      if (vp1.x != mouseX && vp1.y != mouseY) {
+        codeDisplayer.add('probRects.push(new MyRect(vp1, createVector(mouseX, mouseY)));');
+        probRects.push(new MyRect(vp1, createVector(mouseX, mouseY)));
+      }
     }
     vp1 = createVector(mouseX, mouseY);
-  }
-  else {
+  } else {
     vp1Defined = true;
+    codeDisplayer.add('operatingArea.rect(vp1.x, vp1.y, mouseX - vp1.x, mouseY - vp1.y);');
     operatingArea.rect(vp1.x, vp1.y, mouseX - vp1.x, mouseY - vp1.y);
+    codeDisplayer.add('operatingArea.line(vp1.x, vp1.y, mouseX, mouseY);');
     operatingArea.line(vp1.x, vp1.y, mouseX, mouseY);
+    codeDisplayer.add('operatingArea.circle(vp1.x, vp1.y, 10);');
     operatingArea.circle(vp1.x, vp1.y, 10);
   }
+  codeDisplayer.add('operatingArea.circle(mouseX, mouseY, 10);');
   operatingArea.circle(mouseX, mouseY, 10);
   pop();
 }
+
 
 function preload() {
   let imgsize = 10;
@@ -280,7 +322,7 @@ function setup() {
   // canvas.parent('sketch-container');
 
   operatingArea = createGraphics(operatingAreaWidth, operatingAreaHeight);
-  displayArea = createGraphics(displayAreaWidth, displayAreaHeight);
+  addArea = createGraphics(addAreaWidth, addAreaHeight);
 
   background(255);
 
@@ -292,11 +334,12 @@ function setup() {
   poemInput.input(poemInputEvent);
 
   saveButton = createButton('save');
-  saveButton.size(100, 50);
-  saveButton.position(operatingAreaWidth + displayAreaWidth / 2 - 50, operatingAreaHeight + 50);
+  saveButton.size(200, 100);
+  saveButton.position(operatingAreaWidth + addAreaWidth / 2 - 100, operatingAreaHeight + 40);
   saveButton.mousePressed(savePaint);
-  saveButton.style('display', 'none');
+  saveButton.style('add', 'none');
 
+  codeDisplayer.initialize();
   setProbRectsFinished = false;
   vp1Defined = false;
   stage = 0;
@@ -304,34 +347,47 @@ function setup() {
 }
 
 function draw() {
+  codeDisplayer.add('clear();');
+  clear();
   if (stage == 0) {
+    codeDisplayer.add('setProbRects();');
     setProbRects();
     if (setProbRectsFinished) {
+      codeDisplayer.add('operatingArea.clear();');
       operatingArea.clear();
+      codeDisplayer.add('clear();');
       clear();
+      codeDisplayer.add('++stage;');
       ++stage;
+      codeDisplayer.add('frameRate(45);');
       frameRate(45);
     }
     // image(operatingArea, 0, 0);
   } else if (stage == 1) {
     if (elementPainter.initiallized && !elementPainter.paintFinished) {
+      codeDisplayer.add('elementPainter.paintNext();');
       elementPainter.paintNext();
     }
 
   }
-  clear();
+
+  codeDisplayer.add('image(operatingArea, 0, 0);');
   image(operatingArea, 0, 0);
-  if (elementPainter.paintFinished && !displayAreaDefined) {
-    displayArea.clear();
-    displayArea.image(operatingArea, 0, 0);
-    displayAreaDefined = true;
-    saveButton.style('display', 'block');
+  if (elementPainter.paintFinished && !addAreaDefined) {
+    codeDisplayer.add('addArea.clear();');
+    addArea.clear();
+    codeDisplayer.add('addArea.image(operatingArea, 0, 0);');
+    addArea.image(operatingArea, 0, 0);
+    addAreaDefined = true;
+    codeDisplayer.add("saveButton.style('add', 'block');");
+    saveButton.style('add', 'block');
   }
-  if (displayAreaDefined) {
-    image(displayArea, operatingAreaWidth, 0);
+  if (addAreaDefined) {
+    codeDisplayer.add('image(addArea, operatingAreaWidth, 0);');
+    image(addArea, operatingAreaWidth, 0);
   }
-  // noLoop();
-  image(instructionImage, operatingAreaWidth * 2, 0, 841, 1189);
+  image(instructionImage, operatingAreaWidth * 2, 0, operatingAreaWidth, operatingAreaHeight);
+  image(codeDisplayer.graphics, codeDisplayer.position.x, codeDisplayer.position.y);
 }
 
 let elementPainter = new class {
@@ -340,7 +396,6 @@ let elementPainter = new class {
     this.paintFinished = false;
     this.paintIndex = 0;
     this.initiallized = false;
-
   }
 
   initiallize() {
@@ -589,20 +644,30 @@ function poemInputEvent() {
 
 function keyPressed() {
   let reset = () => {
+    codeDisplayer.add("clear(); // 清空画布");
     clear(); // 清空画布
+    codeDisplayer.add("operatingArea.clear();");
     operatingArea.clear();
+    codeDisplayer.add("iconPainter.clear();");
     iconPainter.clear();
+    codeDisplayer.add("for (let key of painted.keys()) {\n painted.set(key, false);\n}");
     for (let key of painted.keys()) {
       painted.set(key, false);
     }
+    codeDisplayer.add("backgroundElementsModifier.undo();");
     backgroundElementsModifier.undo();
+    codeDisplayer.add("bgPainter.clear();");
     bgPainter.clear();
+    codeDisplayer.add("elementPainter.clear();");
     elementPainter.clear();
+    codeDisplayer.add("averageColor.clear();");
     averageColor.clear();
   }
 
   let generate2 = () => {
+    codeDisplayer.add("let poemtext = poemInput.value();");
     let poemtext = poemInput.value();
+    codeDisplayer.add("for (let i = 0; i != poemtext.length; ++i) {\n let wch = poemtext[i];\n if (images.has(wch) && !painted.get(wch)) {\n painted.set(wch, true);\n let img1, img2;\n img1 = images.get(wch);\n img2 = imagesAppendix.get(wch);\n iconPainter.addIconToList2(img1, img2, 10, 20);\n averageColor.append(img1);\n }\n}");
     for (let i = 0; i != poemtext.length; ++i) {
       let wch = poemtext[i];
       if (images.has(wch) && !painted.get(wch)) {
@@ -614,19 +679,28 @@ function keyPressed() {
         averageColor.append(img1);
       }
     }
+    codeDisplayer.add("averageColor.calcAverageColor();");
     averageColor.calcAverageColor();
+    codeDisplayer.add("averageColor.processColorBrightness();");
     averageColor.processColorBrightness();
+    codeDisplayer.add("backgroundElementsModifier.modify();");
     backgroundElementsModifier.modify();
+    codeDisplayer.add("iconPainter.randomShuffle();");
     iconPainter.randomShuffle();
+    codeDisplayer.add("elementPainter.initiallize();");
     elementPainter.initiallize();
   }
 
   let generateBg = () => {
+    codeDisplayer.add("let enforcementTime = 40;");
     let enforcementTime = 40;
     do {
+      codeDisplayer.add("let rin = parseInt(random(backgroundElements.length));");
       let rin = parseInt(random(backgroundElements.length));
+      codeDisplayer.add("bgPainter.addImageToList(backgroundElements[rin]);");
       bgPainter.addImageToList(backgroundElements[rin]);
     } while (enforcementTime-- > 0);
+    codeDisplayer.add("bgPainter.randomShuffle();");
     bgPainter.randomShuffle();
   }
 
@@ -647,7 +721,7 @@ function keyPressed() {
         operatingArea.fill(255);
         operatingArea.stroke(0);
         for (let i = 0; i != probRects.length; ++i) {
-          probRects[i].display();
+          probRects[i].add();
         }
         operatingArea.pop();
         setProbRectsFinished = false;
@@ -655,15 +729,15 @@ function keyPressed() {
         reset();
       }
     } else if (keyCode == ENTER) {
-      displayArea.clear();
-      displayAreaDefined = false;
-      saveButton.style('display', 'none');
+      addArea.clear();
+      addAreaDefined = false;
+      saveButton.style('add', 'none');
       generateBg();
       generate2();
     } else if (keyCode == TAB) {
-      displayArea.clear();
-      displayAreaDefined = false;
-      saveButton.style('display', 'none');
+      addArea.clear();
+      addAreaDefined = false;
+      saveButton.style('add', 'none');
       reset();
       generateBg();
       generate2();
@@ -673,6 +747,6 @@ function keyPressed() {
 
 
 function savePaint() {
-  if (!displayAreaDefined) throw 'savePaint: Cannot save graphics before painting finished';
-  save(displayArea, Date.now() + '.png');
+  if (!addAreaDefined) throw 'savePaint: Cannot save graphics before painting finished';
+  save(addArea, Date.now() + '.png');
 }
